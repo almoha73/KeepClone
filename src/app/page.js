@@ -24,6 +24,7 @@ export default function KeepClone() {
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [draggedNote, setDraggedNote] = useState(null);
+  const [draggedOverIndex, setDraggedOverIndex] = useState(null);
 
   // Écouter l'état d'authentification
   useEffect(() => {
@@ -174,37 +175,64 @@ export default function KeepClone() {
     setSyncing(false);
   };
 
-  // Gestion du drag & drop
+  // Gestion du drag & drop pour réorganiser
   const handleDragStart = (e, note) => {
     setDraggedNote(note);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e, index) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    setDraggedOverIndex(index);
   };
 
-  const handleDrop = (e, targetSection) => {
+  const handleDrop = (e, targetIndex, targetSection) => {
     e.preventDefault();
     
     if (!draggedNote) return;
     
-    const shouldPin = targetSection === 'pinned';
+    // Déterminer la liste source et cible
+    const isTargetPinned = targetSection === 'pinned';
+    const sourceList = draggedNote.pinned ? pinnedNotes : unpinnedNotes;
+    const targetList = isTargetPinned ? pinnedNotes : unpinnedNotes;
     
-    // Si la note est déjà dans la bonne section, ne rien faire
-    if (draggedNote.pinned === shouldPin) {
-      setDraggedNote(null);
-      return;
+    // Trouver l'index source
+    const sourceIndex = sourceList.findIndex(note => note.id === draggedNote.id);
+    
+    // Si on change de section (épinglé/non épinglé)
+    if (draggedNote.pinned !== isTargetPinned) {
+      // Mettre à jour le statut épinglé
+      updateNote(draggedNote.id, { pinned: isTargetPinned });
+    } else {
+      // Réorganiser dans la même section
+      if (sourceIndex !== targetIndex) {
+        const newOrder = [...sourceList];
+        const [removed] = newOrder.splice(sourceIndex, 1);
+        newOrder.splice(targetIndex, 0, removed);
+        
+        // Mettre à jour l'ordre avec des timestamps
+        newOrder.forEach((note, index) => {
+          const newTimestamp = Date.now() - (newOrder.length - index);
+          updateNote(note.id, { 
+            orderIndex: newTimestamp,
+            updatedAt: new Date(newTimestamp).toISOString()
+          });
+        });
+      }
     }
     
-    // Mettre à jour le statut épinglé
-    togglePin(draggedNote.id);
     setDraggedNote(null);
+    setDraggedOverIndex(null);
   };
 
   const handleDragEnd = () => {
     setDraggedNote(null);
+    setDraggedOverIndex(null);
+  };
+
+  const handleDragLeave = () => {
+    setDraggedOverIndex(null);
   };
   const handleLogout = async () => {
     try {
@@ -214,7 +242,7 @@ export default function KeepClone() {
     }
   };
 
-  // Filtrer les notes
+  // Filtrer et trier les notes
   const filteredNotes = notes.filter(note => {
     const searchLower = searchTerm.toLowerCase();
     
@@ -230,8 +258,19 @@ export default function KeepClone() {
     return titleMatch || contentMatch || attachmentMatch;
   });
 
-  const pinnedNotes = filteredNotes.filter(note => note.pinned);
-  const unpinnedNotes = filteredNotes.filter(note => !note.pinned);
+  // Trier par orderIndex puis par date de création
+  const sortedNotes = filteredNotes.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    
+    // Dans la même section, trier par orderIndex ou date
+    const aOrder = a.orderIndex || new Date(a.createdAt).getTime();
+    const bOrder = b.orderIndex || new Date(b.createdAt).getTime();
+    return bOrder - aOrder;
+  });
+
+  const pinnedNotes = sortedNotes.filter(note => note.pinned);
+  const unpinnedNotes = sortedNotes.filter(note => !note.pinned);
 
   // Écran de chargement de l'authentification
   if (authLoading) {
@@ -337,29 +376,29 @@ export default function KeepClone() {
 
         {/* Notes épinglées */}
         {pinnedNotes.length > 0 && (
-          <div 
-            className="mb-8"
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'pinned')}
-          >
+          <div className="mb-8">
             <h2 className="text-sm font-medium text-gray-600 mb-4 uppercase tracking-wide flex items-center">
               <Pin className="w-4 h-4 mr-2" />
               Épinglées
-              {draggedNote && !draggedNote.pinned && (
-                <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                  Déposez ici pour épingler
-                </span>
-              )}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {pinnedNotes.map(note => (
+              {pinnedNotes.map((note, index) => (
                 <div
                   key={note.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, note)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={(e) => handleDrop(e, index, 'pinned')}
                   onDragEnd={handleDragEnd}
-                  className={`transition-opacity duration-200 ${
-                    draggedNote?.id === note.id ? 'opacity-50' : 'opacity-100'
+                  onDragLeave={handleDragLeave}
+                  className={`transition-all duration-200 cursor-move ${
+                    draggedNote?.id === note.id 
+                      ? 'opacity-50 scale-95' 
+                      : 'opacity-100 scale-100'
+                  } ${
+                    draggedOverIndex === index && draggedNote?.id !== note.id
+                      ? 'transform translate-y-2 border-2 border-blue-300 border-dashed'
+                      : ''
                   }`}
                 >
                   <NoteCard 
@@ -378,29 +417,30 @@ export default function KeepClone() {
 
         {/* Autres notes */}
         {unpinnedNotes.length > 0 && (
-          <div
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, 'unpinned')}
-          >
+          <div>
             {pinnedNotes.length > 0 && (
-              <h2 className="text-sm font-medium text-gray-600 mb-4 uppercase tracking-wide flex items-center">
+              <h2 className="text-sm font-medium text-gray-600 mb-4 uppercase tracking-wide">
                 Autres
-                {draggedNote && draggedNote.pinned && (
-                  <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                    Déposez ici pour désépingler
-                  </span>
-                )}
               </h2>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {unpinnedNotes.map(note => (
+              {unpinnedNotes.map((note, index) => (
                 <div
                   key={note.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, note)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDrop={(e) => handleDrop(e, index, 'unpinned')}
                   onDragEnd={handleDragEnd}
-                  className={`transition-opacity duration-200 ${
-                    draggedNote?.id === note.id ? 'opacity-50' : 'opacity-100'
+                  onDragLeave={handleDragLeave}
+                  className={`transition-all duration-200 cursor-move ${
+                    draggedNote?.id === note.id 
+                      ? 'opacity-50 scale-95' 
+                      : 'opacity-100 scale-100'
+                  } ${
+                    draggedOverIndex === index && draggedNote?.id !== note.id
+                      ? 'transform translate-y-2 border-2 border-blue-300 border-dashed'
+                      : ''
                   }`}
                 >
                   <NoteCard 
