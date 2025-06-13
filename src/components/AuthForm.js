@@ -1,31 +1,31 @@
 // components/AuthForm.js
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function AuthForm() {
-  const [authMode, setAuthMode] = useState('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
+  const [authMode, setAuthMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    setAuthError('');
+    setAuthError("");
     setLoading(true);
     
     try {
-      if (authMode === 'login') {
+      if (authMode === "login") {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      setEmail('');
-      setPassword('');
+      setEmail("");
+      setPassword("");
     } catch (error) {
       setAuthError(error.message);
     }
@@ -39,7 +39,7 @@ export default function AuthForm() {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-900">Keep</h2>
           <p className="mt-2 text-gray-600">
-            {authMode === 'login' ? 'Connectez-vous à votre compte' : 'Créez votre compte'}
+            {authMode === "login" ? "Connectez-vous à votre compte" : "Créez votre compte"}
           </p>
         </div>
         
@@ -91,7 +91,7 @@ export default function AuthForm() {
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                authMode === 'login' ? 'Se connecter' : 'Créer un compte'
+                authMode === "login" ? "Se connecter" : "Créer un compte"
               )}
             </button>
           </div>
@@ -99,11 +99,11 @@ export default function AuthForm() {
           <div className="text-center">
             <button
               type="button"
-              onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+              onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
               className="text-blue-600 hover:text-blue-500"
               disabled={loading}
             >
-              {authMode === 'login' 
+              {authMode === "login" 
                 ? "Pas de compte ? Créez-en un" 
                 : "Déjà un compte ? Connectez-vous"
               }

@@ -1,30 +1,30 @@
 // src/app/page.js
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Search, Edit3, Loader2, Wifi, WifiOff, LogOut, User } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, deleteObject } from 'firebase/storage';
+import React, { useState, useEffect } from "react";
+import { Search, Edit3, Loader2, Wifi, WifiOff, LogOut, User } from "lucide-react";
+import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { ref, deleteObject } from "firebase/storage";
 
 // Imports des composants
-import AuthForm from '@/components/AuthForm';
-import NoteCard from '@/components/NoteCard';
-import NoteForm from '@/components/NoteForm';
+import AuthForm from "@/components/AuthForm";
+import NoteCard from "@/components/NoteCard";
+import NoteForm from "@/components/NoteForm";
 
 // Import de la configuration Firebase
-import { db, auth, storage } from '@/lib/firebase';
+import { db, auth, storage } from "@/lib/firebase";
 
 export default function KeepClone() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [notes, setNotes] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
 
-  // Écouter l'état d'authentification
+  // Écouter l"état d"authentification
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -40,16 +40,16 @@ export default function KeepClone() {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
     
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
-  // Charger les notes de l'utilisateur connecté
+  // Charger les notes de l"utilisateur connecté
   useEffect(() => {
     if (!user) {
       setNotes([]);
@@ -59,9 +59,9 @@ export default function KeepClone() {
     setLoading(true);
     
     const q = query(
-      collection(db, 'notes'), 
-      where('ownerId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      collection(db, "notes"), 
+      where("ownerId", "==", user.uid),
+      orderBy("createdAt", "desc")
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -80,7 +80,7 @@ export default function KeepClone() {
       setNotes(sortedNotes);
       setLoading(false);
     }, (error) => {
-      console.error('Erreur lors du chargement des notes:', error);
+      console.error("Erreur lors du chargement des notes:", error);
       setLoading(false);
     });
 
@@ -95,17 +95,17 @@ export default function KeepClone() {
     try {
       const completeNoteData = {
         ...noteData,
-        title: noteData.title || 'Note sans titre',
+        title: noteData.title || "Note sans titre",
         pinned: false,
         ownerId: user.uid,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
       
-      await addDoc(collection(db, 'notes'), completeNoteData);
+      await addDoc(collection(db, "notes"), completeNoteData);
     } catch (error) {
-      console.error('Erreur lors de la création de la note:', error);
-      alert('Erreur lors de la sauvegarde. Vérifiez votre connexion.');
+      console.error("Erreur lors de la création de la note:", error);
+      alert("Erreur lors de la sauvegarde. Vérifiez votre connexion.");
     }
     setSyncing(false);
   };
@@ -125,15 +125,15 @@ export default function KeepClone() {
             const fileRef = ref(storage, attachment.path);
             await deleteObject(fileRef);
           } catch (error) {
-            console.error('Erreur lors de la suppression du fichier:', error);
+            console.error("Erreur lors de la suppression du fichier:", error);
           }
         }
       }
       
-      await deleteDoc(doc(db, 'notes', id));
+      await deleteDoc(doc(db, "notes", id));
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      alert('Erreur lors de la suppression. Vérifiez votre connexion.');
+      console.error("Erreur lors de la suppression:", error);
+      alert("Erreur lors de la suppression. Vérifiez votre connexion.");
     }
     setSyncing(false);
   };
@@ -145,13 +145,13 @@ export default function KeepClone() {
     setSyncing(true);
     try {
       const note = notes.find(n => n.id === id);
-      await updateDoc(doc(db, 'notes', id), {
+      await updateDoc(doc(db, "notes", id), {
         pinned: !note.pinned,
         updatedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Erreur lors de l\'épinglage:', error);
-      alert('Erreur lors de la mise à jour. Vérifiez votre connexion.');
+      console.error("Erreur lors de l\"épinglage:", error);
+      alert("Erreur lors de la mise à jour. Vérifiez votre connexion.");
     }
     setSyncing(false);
   };
@@ -162,13 +162,13 @@ export default function KeepClone() {
     
     setSyncing(true);
     try {
-      await updateDoc(doc(db, 'notes', id), {
+      await updateDoc(doc(db, "notes", id), {
         ...updates,
         updatedAt: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Erreur lors de la mise à jour:', error);
-      alert('Erreur lors de la mise à jour. Vérifiez votre connexion.');
+      console.error("Erreur lors de la mise à jour:", error);
+      alert("Erreur lors de la mise à jour. Vérifiez votre connexion.");
     }
     setSyncing(false);
   };
@@ -178,7 +178,7 @@ export default function KeepClone() {
     try {
       await signOut(auth);
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
+      console.error("Erreur lors de la déconnexion:", error);
     }
   };
 
@@ -191,7 +191,7 @@ export default function KeepClone() {
   const pinnedNotes = filteredNotes.filter(note => note.pinned);
   const unpinnedNotes = filteredNotes.filter(note => !note.pinned);
 
-  // Écran de chargement de l'authentification
+  // Écran de chargement de l"authentification
   if (authLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -344,7 +344,7 @@ export default function KeepClone() {
           <div className="text-center py-16">
             <div className="text-gray-400 mb-4">
               <Edit3 className="w-16 h-16 mx-auto mb-4" />
-              <p className="text-xl">Vos notes s'afficheront ici</p>
+              <p className="text-xl">Vos notes s"afficheront ici</p>
               <p className="text-sm mt-2">Créez votre première note !</p>
             </div>
           </div>

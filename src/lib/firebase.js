@@ -4,15 +4,15 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
-// Configuration Firebase
+// Configuration Firebase avec variables d'environnement
 const firebaseConfig = {
-  apiKey: "AIzaSyB0AwDHYpFH-8X2s9L7PqfNGQPUzz5DWyY",
-  authDomain: "mon-app-de-notes.firebaseapp.com",
-  projectId: "mon-app-de-notes",
-  storageBucket: "mon-app-de-notes.firebasestorage.app",
-  messagingSenderId: "933526243076",
-  appId: "1:933526243076:web:ebba9035b16deb6fa7b251",
-  measurementId: "G-E8978T42DJ"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialisation Firebase
