@@ -21,16 +21,10 @@ export default function NoteCard({
   syncing, 
   user 
 }) {
-  // Vérification de sécurité
-  if (!note) {
-    console.error('NoteCard: note is undefined');
-    return null;
-  }
-
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(note.title || '');
-  const [editContent, setEditContent] = useState(note.content || '');
-  const [editAttachments, setEditAttachments] = useState(note.attachments || []);
+  const [editTitle, setEditTitle] = useState(note?.title || '');
+  const [editContent, setEditContent] = useState(note?.content || '');
+  const [editAttachments, setEditAttachments] = useState(note?.attachments || []);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showPositionMenu, setShowPositionMenu] = useState(false);
@@ -47,6 +41,19 @@ export default function NoteCard({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Si pas de note, afficher un placeholder au lieu de return null
+  if (!note) {
+    return (
+      <div className="relative bg-gray-100 rounded-lg shadow-sm border border-gray-200 p-4">
+        <p className="text-gray-500 text-center">Note en cours de chargement...</p>
+      </div>
+    );
+  } sécurité APRÈS les hooks
+  if (!note) {
+    console.error('NoteCard: note is undefined');
+    return null;
+  }
+
   const handleSave = async () => {
     if (editTitle !== note.title || editContent !== note.content || JSON.stringify(editAttachments) !== JSON.stringify(note.attachments)) {
       await onUpdate(note.id, { 
@@ -59,9 +66,9 @@ export default function NoteCard({
   };
 
   const handleCancel = () => {
-    setEditTitle(note.title || '');
-    setEditContent(note.content || '');
-    setEditAttachments(note.attachments || []);
+    setEditTitle(note?.title || '');
+    setEditContent(note?.content || '');
+    setEditAttachments(note?.attachments || []);
     setIsEditing(false);
   };
 
