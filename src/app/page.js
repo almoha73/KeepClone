@@ -437,7 +437,7 @@ export default function KeepClone() {
           </div>
         )}
 
-        {/* Message si aucune note */}
+        {/* Message si aucune note */} 
         {notes.length === 0 && (
           <div className="text-center py-16">
             <div className="text-gray-400 mb-4">
