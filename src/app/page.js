@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, Edit3, Loader2, Wifi, WifiOff, LogOut, User, Pin } from 'lucide-react';
+// IMPORTS FIREBASE
 import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, deleteObject } from 'firebase/storage';
@@ -87,50 +88,28 @@ export default function KeepClone() {
     return () => unsubscribe();
   }, [user]);
 
-  // Fonctions de réorganisation avec boutons
+  // Fonctions de réorganisation avec boutons (corrigées)
   const moveNoteUp = async (noteId) => {
-    const currentSection = notes.find(n => n.id === noteId);
-    const sectionNotes = currentSection.pinned ? pinnedNotes : unpinnedNotes;
+    const currentNote = notes.find(n => n.id === noteId);
+    const sectionNotes = currentNote.pinned ? pinnedNotes : unpinnedNotes;
     const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
     
     if (currentIndex > 0) {
-      const targetNote = sectionNotes[currentIndex - 1];
-      const currentTime = Date.now();
-      
-      // Échanger les positions
-      await updateNote(noteId, { 
-        orderIndex: currentTime + 1,
-        updatedAt: new Date(currentTime + 1).toISOString()
-      });
-      await updateNote(targetNote.id, { 
-        orderIndex: currentTime,
-        updatedAt: new Date(currentTime).toISOString()
-      });
+      await moveToPosition(noteId, currentIndex - 1);
     }
   };
 
   const moveNoteDown = async (noteId) => {
-    const currentSection = notes.find(n => n.id === noteId);
-    const sectionNotes = currentSection.pinned ? pinnedNotes : unpinnedNotes;
+    const currentNote = notes.find(n => n.id === noteId);
+    const sectionNotes = currentNote.pinned ? pinnedNotes : unpinnedNotes;
     const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
     
     if (currentIndex < sectionNotes.length - 1) {
-      const targetNote = sectionNotes[currentIndex + 1];
-      const currentTime = Date.now();
-      
-      // Échanger les positions
-      await updateNote(noteId, { 
-        orderIndex: currentTime,
-        updatedAt: new Date(currentTime).toISOString()
-      });
-      await updateNote(targetNote.id, { 
-        orderIndex: currentTime + 1,
-        updatedAt: new Date(currentTime + 1).toISOString()
-      });
+      await moveToPosition(noteId, currentIndex + 1);
     }
   };
 
-  // Nouvelle fonction pour déplacer à une position spécifique
+  // Nouvelle fonction pour déplacer à une position spécifique (corrigée)
   const moveToPosition = async (noteId, targetPosition) => {
     const currentNote = notes.find(n => n.id === noteId);
     const sectionNotes = currentNote.pinned ? pinnedNotes : unpinnedNotes;
@@ -145,15 +124,24 @@ export default function KeepClone() {
       const [movedNote] = newOrder.splice(currentIndex, 1);
       newOrder.splice(targetPosition, 0, movedNote);
       
-      // Mettre à jour toutes les positions
+      // Mettre à jour toutes les positions avec des index séquentiels
       const baseTime = Date.now();
+      const updates = [];
+      
       for (let i = 0; i < newOrder.length; i++) {
         const note = newOrder[i];
-        await updateNote(note.id, {
-          orderIndex: baseTime + (newOrder.length - i),
-          updatedAt: new Date(baseTime + (newOrder.length - i)).toISOString()
-        });
+        // Utiliser un ordre décroissant pour que le premier ait le plus grand index
+        const orderIndex = baseTime + (1000 * (newOrder.length - i));
+        
+        updates.push(updateDoc(doc(db, 'notes', note.id), {
+          orderIndex: orderIndex,
+          updatedAt: new Date(baseTime + i).toISOString()
+        }));
       }
+      
+      // Exécuter toutes les mises à jour en parallèle
+      await Promise.all(updates);
+      
     } catch (error) {
       console.error('Erreur lors du déplacement:', error);
       alert('Erreur lors du déplacement. Vérifiez votre connexion.');
@@ -454,7 +442,7 @@ export default function KeepClone() {
           <div className="text-center py-16">
             <div className="text-gray-400 mb-4">
               <Edit3 className="w-16 h-16 mx-auto mb-4" />
-              <p className="text-xl">Vos notes s&apos;afficheront ici</p>
+              <p className="text-xl">Vos notes s'afficheront ici</p>
               <p className="text-sm mt-2">Créez votre première note !</p>
             </div>
           </div>
