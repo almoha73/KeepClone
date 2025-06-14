@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Edit3, Loader2, Wifi, WifiOff, LogOut, User } from 'lucide-react';
+import { Search, Edit3, Loader2, Wifi, WifiOff, LogOut, User, Pin } from 'lucide-react';
 import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, deleteObject } from 'firebase/storage';
@@ -23,8 +23,6 @@ export default function KeepClone() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const [draggedNote, setDraggedNote] = useState(null);
-  const [draggedOverIndex, setDraggedOverIndex] = useState(null);
 
   // Écouter l'état d'authentification
   useEffect(() => {
@@ -88,6 +86,80 @@ export default function KeepClone() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Fonctions de réorganisation avec boutons
+  const moveNoteUp = async (noteId) => {
+    const currentSection = notes.find(n => n.id === noteId);
+    const sectionNotes = currentSection.pinned ? pinnedNotes : unpinnedNotes;
+    const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
+    
+    if (currentIndex > 0) {
+      const targetNote = sectionNotes[currentIndex - 1];
+      const currentTime = Date.now();
+      
+      // Échanger les positions
+      await updateNote(noteId, { 
+        orderIndex: currentTime + 1,
+        updatedAt: new Date(currentTime + 1).toISOString()
+      });
+      await updateNote(targetNote.id, { 
+        orderIndex: currentTime,
+        updatedAt: new Date(currentTime).toISOString()
+      });
+    }
+  };
+
+  const moveNoteDown = async (noteId) => {
+    const currentSection = notes.find(n => n.id === noteId);
+    const sectionNotes = currentSection.pinned ? pinnedNotes : unpinnedNotes;
+    const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
+    
+    if (currentIndex < sectionNotes.length - 1) {
+      const targetNote = sectionNotes[currentIndex + 1];
+      const currentTime = Date.now();
+      
+      // Échanger les positions
+      await updateNote(noteId, { 
+        orderIndex: currentTime,
+        updatedAt: new Date(currentTime).toISOString()
+      });
+      await updateNote(targetNote.id, { 
+        orderIndex: currentTime + 1,
+        updatedAt: new Date(currentTime + 1).toISOString()
+      });
+    }
+  };
+
+  // Nouvelle fonction pour déplacer à une position spécifique
+  const moveToPosition = async (noteId, targetPosition) => {
+    const currentNote = notes.find(n => n.id === noteId);
+    const sectionNotes = currentNote.pinned ? pinnedNotes : unpinnedNotes;
+    const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
+    
+    if (currentIndex === targetPosition) return;
+    
+    setSyncing(true);
+    try {
+      // Créer un nouveau tableau avec la note déplacée
+      const newOrder = [...sectionNotes];
+      const [movedNote] = newOrder.splice(currentIndex, 1);
+      newOrder.splice(targetPosition, 0, movedNote);
+      
+      // Mettre à jour toutes les positions
+      const baseTime = Date.now();
+      for (let i = 0; i < newOrder.length; i++) {
+        const note = newOrder[i];
+        await updateNote(note.id, {
+          orderIndex: baseTime + (newOrder.length - i),
+          updatedAt: new Date(baseTime + (newOrder.length - i)).toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du déplacement:', error);
+      alert('Erreur lors du déplacement. Vérifiez votre connexion.');
+    }
+    setSyncing(false);
+  };
 
   // Créer une nouvelle note
   const createNote = async (noteData) => {
@@ -175,65 +247,7 @@ export default function KeepClone() {
     setSyncing(false);
   };
 
-  // Gestion du drag & drop pour réorganiser
-  const handleDragStart = (e, note) => {
-    setDraggedNote(note);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDraggedOverIndex(index);
-  };
-
-  const handleDrop = (e, targetIndex, targetSection) => {
-    e.preventDefault();
-    
-    if (!draggedNote) return;
-    
-    // Déterminer la liste source et cible
-    const isTargetPinned = targetSection === 'pinned';
-    const sourceList = draggedNote.pinned ? pinnedNotes : unpinnedNotes;
-    const targetList = isTargetPinned ? pinnedNotes : unpinnedNotes;
-    
-    // Trouver l'index source
-    const sourceIndex = sourceList.findIndex(note => note.id === draggedNote.id);
-    
-    // Si on change de section (épinglé/non épinglé)
-    if (draggedNote.pinned !== isTargetPinned) {
-      // Mettre à jour le statut épinglé
-      updateNote(draggedNote.id, { pinned: isTargetPinned });
-    } else {
-      // Réorganiser dans la même section
-      if (sourceIndex !== targetIndex) {
-        const newOrder = [...sourceList];
-        const [removed] = newOrder.splice(sourceIndex, 1);
-        newOrder.splice(targetIndex, 0, removed);
-        
-        // Mettre à jour l'ordre avec des timestamps
-        newOrder.forEach((note, index) => {
-          const newTimestamp = Date.now() - (newOrder.length - index);
-          updateNote(note.id, { 
-            orderIndex: newTimestamp,
-            updatedAt: new Date(newTimestamp).toISOString()
-          });
-        });
-      }
-    }
-    
-    setDraggedNote(null);
-    setDraggedOverIndex(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedNote(null);
-    setDraggedOverIndex(null);
-  };
-
-  const handleDragLeave = () => {
-    setDraggedOverIndex(null);
-  };
+  // Déconnexion
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -383,33 +397,22 @@ export default function KeepClone() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {pinnedNotes.map((note, index) => (
-                <div
-                  key={note.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, note)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDrop={(e) => handleDrop(e, index, 'pinned')}
-                  onDragEnd={handleDragEnd}
-                  onDragLeave={handleDragLeave}
-                  className={`transition-all duration-200 cursor-move ${
-                    draggedNote?.id === note.id 
-                      ? 'opacity-50 scale-95' 
-                      : 'opacity-100 scale-100'
-                  } ${
-                    draggedOverIndex === index && draggedNote?.id !== note.id
-                      ? 'transform translate-y-2 border-2 border-blue-300 border-dashed'
-                      : ''
-                  }`}
-                >
-                  <NoteCard 
-                    note={note} 
-                    user={user}
-                    onUpdate={updateNote}
-                    onDelete={deleteNote}
-                    onTogglePin={togglePin}
-                    syncing={syncing}
-                  />
-                </div>
+                <NoteCard 
+                  key={note.id} 
+                  note={note} 
+                  user={user}
+                  onUpdate={updateNote}
+                  onDelete={deleteNote}
+                  onTogglePin={togglePin}
+                  onMoveUp={moveNoteUp}
+                  onMoveDown={moveNoteDown}
+                  onMoveToPosition={moveToPosition}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < pinnedNotes.length - 1}
+                  totalInSection={pinnedNotes.length}
+                  currentPosition={index}
+                  syncing={syncing}
+                />
               ))}
             </div>
           </div>
@@ -425,33 +428,22 @@ export default function KeepClone() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {unpinnedNotes.map((note, index) => (
-                <div
-                  key={note.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, note)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDrop={(e) => handleDrop(e, index, 'unpinned')}
-                  onDragEnd={handleDragEnd}
-                  onDragLeave={handleDragLeave}
-                  className={`transition-all duration-200 cursor-move ${
-                    draggedNote?.id === note.id 
-                      ? 'opacity-50 scale-95' 
-                      : 'opacity-100 scale-100'
-                  } ${
-                    draggedOverIndex === index && draggedNote?.id !== note.id
-                      ? 'transform translate-y-2 border-2 border-blue-300 border-dashed'
-                      : ''
-                  }`}
-                >
-                  <NoteCard 
-                    note={note} 
-                    user={user}
-                    onUpdate={updateNote}
-                    onDelete={deleteNote}
-                    onTogglePin={togglePin}
-                    syncing={syncing}
-                  />
-                </div>
+                <NoteCard 
+                  key={note.id} 
+                  note={note} 
+                  user={user}
+                  onUpdate={updateNote}
+                  onDelete={deleteNote}
+                  onTogglePin={togglePin}
+                  onMoveUp={moveNoteUp}
+                  onMoveDown={moveNoteDown}
+                  onMoveToPosition={moveToPosition}
+                  canMoveUp={index > 0}
+                  canMoveDown={index < unpinnedNotes.length - 1}
+                  totalInSection={unpinnedNotes.length}
+                  currentPosition={index}
+                  syncing={syncing}
+                />
               ))}
             </div>
           </div>

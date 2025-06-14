@@ -2,16 +2,32 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Pin, Edit3, Trash2, Loader2, Download, FileText, Image as ImageIcon, Paperclip, X } from 'lucide-react';
+import { Pin, Edit3, Trash2, Loader2, Download, FileText, Image as ImageIcon, Paperclip, X, ChevronUp, ChevronDown, MoreVertical } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 
-export default function NoteCard({ note, onUpdate, onDelete, onTogglePin, syncing, user }) {
+export default function NoteCard({ 
+  note, 
+  onUpdate, 
+  onDelete, 
+  onTogglePin, 
+  onMoveUp, 
+  onMoveDown, 
+  onMoveToPosition,
+  canMoveUp, 
+  canMoveDown, 
+  totalInSection,
+  currentPosition,
+  syncing, 
+  user 
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(note.title);
   const [editContent, setEditContent] = useState(note.content);
   const [editAttachments, setEditAttachments] = useState(note.attachments || []);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+  const [showPositionMenu, setShowPositionMenu] = useState(false);
 
   const handleSave = async () => {
     if (editTitle !== note.title || editContent !== note.content || JSON.stringify(editAttachments) !== JSON.stringify(note.attachments)) {
@@ -92,9 +108,91 @@ export default function NoteCard({ note, onUpdate, onDelete, onTogglePin, syncin
     <div 
       className="relative bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 group"
       style={{ backgroundColor: note.color }}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => {
+        setShowActions(false);
+        setShowPositionMenu(false);
+      }}
     >
+      {/* Boutons de réorganisation (côté gauche) */}
+      {!isEditing && showActions && (
+        <div className="absolute top-2 left-2 flex flex-col space-y-1">
+          {canMoveUp && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp(note.id);
+              }}
+              className="p-1 bg-gray-800 text-white rounded-full hover:bg-blue-600 transition-colors"
+              title="Déplacer vers le haut"
+              disabled={syncing}
+            >
+              <ChevronUp className="w-3 h-3" />
+            </button>
+          )}
+          {canMoveDown && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown(note.id);
+              }}
+              className="p-1 bg-gray-800 text-white rounded-full hover:bg-blue-600 transition-colors"
+              title="Déplacer vers le bas"
+              disabled={syncing}
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          )}
+          {/* Menu de position */}
+          {totalInSection > 2 && (
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowPositionMenu(!showPositionMenu);
+                }}
+                className="p-1 bg-gray-800 text-white rounded-full hover:bg-purple-600 transition-colors"
+                title="Choisir la position"
+                disabled={syncing}
+              >
+                <MoreVertical className="w-3 h-3" />
+              </button>
+              
+              {/* Menu déroulant de positions */}
+              {showPositionMenu && (
+                <div className="absolute left-8 top-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]">
+                  <div className="p-2 text-xs text-gray-500 border-b">
+                    Position actuelle: {currentPosition + 1}
+                  </div>
+                  {Array.from({ length: totalInSection }, (_, index) => (
+                    <button
+                      key={index}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveToPosition(note.id, index);
+                        setShowPositionMenu(false);
+                      }}
+                      className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                        index === currentPosition 
+                          ? 'bg-blue-50 text-blue-600 font-medium' 
+                          : 'text-gray-700'
+                      }`}
+                      disabled={index === currentPosition}
+                    >
+                      {index === 0 && 'Placer en premier'}
+                      {index === totalInSection - 1 && index !== 0 && 'Placer en dernier'}
+                      {index !== 0 && index !== totalInSection - 1 && `Position ${index + 1}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Icônes d'action en haut à droite */}
-      {!isEditing && (
+      {!isEditing && showActions && (
         <div className="absolute top-2 right-2 flex space-x-1">
           <button
             onClick={(e) => {
@@ -131,9 +229,9 @@ export default function NoteCard({ note, onUpdate, onDelete, onTogglePin, syncin
         </div>
       )}
 
-      {/* Pin icon pour les notes épinglées */}
-      {note.pinned && (
-        <Pin className="absolute top-2 left-2 w-4 h-4 text-yellow-500 fill-current" />
+      {/* Pin icon pour les notes épinglées (toujours visible) */}
+      {note.pinned && !showActions && (
+        <Pin className="absolute top-2 right-2 w-4 h-4 text-yellow-500 fill-current" />
       )}
 
       <div className="p-4 pt-8">
