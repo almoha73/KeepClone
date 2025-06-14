@@ -1,8 +1,8 @@
-// components/NoteCard.js
+// components/NoteCard.js - VERSION SIMPLIFIÉE
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Pin, Edit3, Trash2, Loader2, Download, FileText, Image as ImageIcon, Paperclip, X, ChevronUp, ChevronDown, MoreVertical } from 'lucide-react';
+import { Pin, Edit3, Trash2, Loader2, Download, FileText, Image as ImageIcon, Paperclip, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 
@@ -13,11 +13,8 @@ export default function NoteCard({
   onTogglePin, 
   onMoveUp, 
   onMoveDown, 
-  onMoveToPosition,
   canMoveUp, 
   canMoveDown, 
-  totalInSection,
-  currentPosition,
   syncing, 
   user 
 }) {
@@ -27,7 +24,6 @@ export default function NoteCard({
   const [editAttachments, setEditAttachments] = useState(note?.attachments || []);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [showActions, setShowActions] = useState(false);
-  const [showPositionMenu, setShowPositionMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Détecter si on est sur mobile
@@ -130,153 +126,50 @@ export default function NoteCard({
       className="relative bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 group"
       style={{ backgroundColor: note.color }}
       onMouseEnter={() => !isMobile && setShowActions(true)}
-      onMouseLeave={() => {
-        if (!isMobile) {
-          setShowActions(false);
-          setShowPositionMenu(false);
-        }
-      }}
+      onMouseLeave={() => !isMobile && setShowActions(false)}
       onTouchStart={() => isMobile && setShowActions(true)}
     >
-      {/* Boutons de réorganisation (côté gauche) */}
-      {!isEditing && (showActions || isMobile) && (
-        <div className="absolute top-2 left-2 flex flex-col space-y-1">
-          {/* Sur mobile, toujours montrer le menu principal */}
-          {(canMoveUp || canMoveDown || totalInSection > 2) && (
-            <div className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowPositionMenu(!showPositionMenu);
-                }}
-                className={`p-1 text-white rounded-full transition-colors ${
-                  isMobile 
-                    ? 'bg-blue-600 hover:bg-blue-700' 
-                    : 'bg-gray-800 hover:bg-purple-600'
-                }`}
-                title="Options de position"
-                disabled={syncing}
-              >
-                <MoreVertical className="w-3 h-3" />
-              </button>
-              
-              {/* Menu de position adaptatif */}
-              {showPositionMenu && (
-                <div className={`absolute bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[140px] ${
-                  isMobile 
-                    ? 'left-8 top-0' 
-                    : 'left-8 top-0'
-                }`}>
-                  <div className="p-2 text-xs text-gray-500 border-b">
-                    Position: {currentPosition + 1} / {totalInSection}
-                  </div>
-                  
-                  {/* Déplacements rapides */}
-                  {canMoveUp && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveUp(note.id);
-                        setShowPositionMenu(false);
-                      }}
-                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <ChevronUp className="w-4 h-4 mr-2" />
-                      Monter d&apos;une place
-                    </button>
-                  )}
-                  
-                  {canMoveDown && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMoveDown(note.id);
-                        setShowPositionMenu(false);
-                      }}
-                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <ChevronDown className="w-4 h-4 mr-2" />
-                      Descendre d&apos;une place
-                    </button>
-                  )}
-                  
-                  {/* Séparateur si il y a des mouvements ET des positions */}
-                  {(canMoveUp || canMoveDown) && totalInSection > 2 && (
-                    <div className="border-t border-gray-200 my-1"></div>
-                  )}
-                  
-                  {/* Positions spécifiques */}
-                  {totalInSection > 2 && (
-                    <>
-                      {currentPosition !== 0 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onMoveToPosition(note.id, 0);
-                            setShowPositionMenu(false);
-                          }}
-                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          📌 Placer en premier
-                        </button>
-                      )}
-                      
-                      {currentPosition !== totalInSection - 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onMoveToPosition(note.id, totalInSection - 1);
-                            setShowPositionMenu(false);
-                          }}
-                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          📍 Placer en dernier
-                        </button>
-                      )}
-                      
-                      {/* Positions intermédiaires (seulement si plus de 4 notes) */}
-                      {totalInSection > 4 && (
-                        <div className="border-t border-gray-200 my-1">
-                          <div className="px-3 py-1 text-xs text-gray-500">Positions:</div>
-                          {Array.from({ length: totalInSection }, (_, index) => {
-                            if (index === 0 || index === totalInSection - 1 || index === currentPosition) {
-                              return null; // Skip first, last, and current
-                            }
-                            return (
-                              <button
-                                key={index}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onMoveToPosition(note.id, index);
-                                  setShowPositionMenu(false);
-                                }}
-                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              >
-                                Position {index + 1}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* Bouton fermer pour mobile */}
-                  {isMobile && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowPositionMenu(false);
-                        setShowActions(false);
-                      }}
-                      className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-200"
-                    >
-                      ✕ Fermer
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+      {/* BOUTONS DE POSITION SIMPLIFIÉS */}
+      {!isEditing && (showActions || isMobile) && (canMoveUp || canMoveDown) && (
+        <div className="absolute top-2 left-2 flex space-x-1">
+          {/* Bouton monter */}
+          {canMoveUp && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp(note.id);
+                if (isMobile) setShowActions(false);
+              }}
+              className={`p-1 text-white rounded-full transition-colors ${
+                isMobile 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-gray-800 hover:bg-blue-600'
+              }`}
+              title="Monter d'une position"
+              disabled={syncing}
+            >
+              <ChevronUp className="w-3 h-3" />
+            </button>
+          )}
+          
+          {/* Bouton descendre */}
+          {canMoveDown && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown(note.id);
+                if (isMobile) setShowActions(false);
+              }}
+              className={`p-1 text-white rounded-full transition-colors ${
+                isMobile 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-gray-800 hover:bg-blue-600'
+              }`}
+              title="Descendre d'une position"
+              disabled={syncing}
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
           )}
         </div>
       )}
@@ -304,7 +197,6 @@ export default function NoteCard({
               e.stopPropagation();
               setIsEditing(true);
               setShowActions(false);
-              setShowPositionMenu(false);
             }}
             className={`p-1 text-white rounded-full transition-colors ${
               isMobile 
