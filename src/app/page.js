@@ -1,35 +1,8 @@
-// Charger les notes de l'utilisateur connecté
-  useEffect(() => {
-    if (!user) {
-      setNotes([]);
-      return;
-    }
-
-    setLoading(true);
-    
-    const q = query(
-      collection(db, 'notes'), 
-      where('ownerId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notesData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const note = {
-          id: doc.id,
-          ...data
-        };
-        
-        // Debug: Vérifier les notes invalides
-        if (!note.id || !note.title === undefined) {
-          console.warn('Invalid note from Firestore:', note);
-        // src/app/page.js
+// src/app/page.js
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Search, Edit3, Loader2, Wifi, WifiOff, LogOut, User, Pin } from 'lucide-react';
-// IMPORTS FIREBASE
 import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, deleteObject } from 'firebase/storage';
@@ -92,19 +65,22 @@ export default function KeepClone() {
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const notesData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const note = {
+          id: doc.id,
+          ...data
+        };
+        
+        // Debug: Vérifier les notes invalides
+        if (!note.id || note.title === undefined) {
+          console.warn('Invalid note from Firestore:', note);
+        }
+        
+        return note;
+      }).filter(note => note && note.id); // Filtrer les notes invalides
       
-      // Trier par épinglées puis par date de création
-      const sortedNotes = notesData.sort((a, b) => {
-        if (a.pinned && !b.pinned) return -1;
-        if (!a.pinned && b.pinned) return 1;
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      });
-      
-      setNotes(sortedNotes);
+      setNotes(notesData);
       setLoading(false);
     }, (error) => {
       console.error('Erreur lors du chargement des notes:', error);
@@ -117,6 +93,8 @@ export default function KeepClone() {
   // Fonctions de réorganisation avec boutons (corrigées)
   const moveNoteUp = async (noteId) => {
     const currentNote = notes.find(n => n.id === noteId);
+    if (!currentNote) return;
+    
     const sectionNotes = currentNote.pinned ? pinnedNotes : unpinnedNotes;
     const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
     
@@ -127,6 +105,8 @@ export default function KeepClone() {
 
   const moveNoteDown = async (noteId) => {
     const currentNote = notes.find(n => n.id === noteId);
+    if (!currentNote) return;
+    
     const sectionNotes = currentNote.pinned ? pinnedNotes : unpinnedNotes;
     const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
     
@@ -138,6 +118,8 @@ export default function KeepClone() {
   // Nouvelle fonction pour déplacer à une position spécifique (corrigée)
   const moveToPosition = async (noteId, targetPosition) => {
     const currentNote = notes.find(n => n.id === noteId);
+    if (!currentNote) return;
+    
     const sectionNotes = currentNote.pinned ? pinnedNotes : unpinnedNotes;
     const currentIndex = sectionNotes.findIndex(n => n.id === noteId);
     
@@ -233,6 +215,8 @@ export default function KeepClone() {
     setSyncing(true);
     try {
       const note = notes.find(n => n.id === id);
+      if (!note) return;
+      
       await updateDoc(doc(db, 'notes', id), {
         pinned: !note.pinned,
         updatedAt: new Date().toISOString()
@@ -420,7 +404,7 @@ export default function KeepClone() {
               Épinglées
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {pinnedNotes.filter(note => note && note.id).map((note, index) => (
+              {pinnedNotes.map((note, index) => (
                 <NoteCard 
                   key={note.id} 
                   note={note} 
@@ -451,7 +435,7 @@ export default function KeepClone() {
               </h2>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {unpinnedNotes.filter(note => note && note.id).map((note, index) => (
+              {unpinnedNotes.map((note, index) => (
                 <NoteCard 
                   key={note.id} 
                   note={note} 
@@ -478,7 +462,7 @@ export default function KeepClone() {
           <div className="text-center py-16">
             <div className="text-gray-400 mb-4">
               <Edit3 className="w-16 h-16 mx-auto mb-4" />
-              <p className="text-xl">Vos notes s'afficheront ici</p>
+              <p className="text-xl">Vos notes s&apos;afficheront ici</p>
               <p className="text-sm mt-2">Créez votre première note !</p>
             </div>
           </div>
