@@ -41,17 +41,13 @@ export default function NoteCard({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Si pas de note, afficher un placeholder au lieu de return null
+  // Si pas de note, afficher un placeholder
   if (!note) {
     return (
       <div className="relative bg-gray-100 rounded-lg shadow-sm border border-gray-200 p-4">
         <p className="text-gray-500 text-center">Note en cours de chargement...</p>
       </div>
     );
-  } sécurité APRÈS les hooks
-  if (!note) {
-    console.error('NoteCard: note is undefined');
-    return null;
   }
 
   const handleSave = async () => {
@@ -186,7 +182,7 @@ export default function NoteCard({
                       className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <ChevronUp className="w-4 h-4 mr-2" />
-                      Monter d'une place
+                      Monter d&apos;une place
                     </button>
                   )}
                   
@@ -200,7 +196,7 @@ export default function NoteCard({
                       className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <ChevronDown className="w-4 h-4 mr-2" />
-                      Descendre d'une place
+                      Descendre d&apos;une place
                     </button>
                   )}
                   
@@ -443,8 +439,8 @@ export default function NoteCard({
           </div>
         ) : (
           <div onClick={() => setIsEditing(true)} className="cursor-pointer">
-            <h3 className="text-lg font-medium mb-2 text-gray-800">{note.title}</h3>
-            <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
+            <h3 className="text-lg font-medium mb-2 text-gray-800">{note.title || 'Note sans titre'}</h3>
+            <p className="text-gray-700 whitespace-pre-wrap">{note.content || ''}</p>
             
             {/* Affichage des fichiers attachés */}
             {note.attachments && note.attachments.length > 0 && (
