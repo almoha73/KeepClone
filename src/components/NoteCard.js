@@ -1,7 +1,7 @@
 // components/NoteCard.js
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pin, Edit3, Trash2, Loader2, Download, FileText, Image as ImageIcon, Paperclip, X, ChevronUp, ChevronDown, MoreVertical } from 'lucide-react';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
@@ -21,13 +21,31 @@ export default function NoteCard({
   syncing, 
   user 
 }) {
+  // Vérification de sécurité
+  if (!note) {
+    console.error('NoteCard: note is undefined');
+    return null;
+  }
+
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(note.title);
-  const [editContent, setEditContent] = useState(note.content);
+  const [editTitle, setEditTitle] = useState(note.title || '');
+  const [editContent, setEditContent] = useState(note.content || '');
   const [editAttachments, setEditAttachments] = useState(note.attachments || []);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showPositionMenu, setShowPositionMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Détecter si on est sur mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768 || 'ontouchstart' in window);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleSave = async () => {
     if (editTitle !== note.title || editContent !== note.content || JSON.stringify(editAttachments) !== JSON.stringify(note.attachments)) {
@@ -41,8 +59,8 @@ export default function NoteCard({
   };
 
   const handleCancel = () => {
-    setEditTitle(note.title);
-    setEditContent(note.content);
+    setEditTitle(note.title || '');
+    setEditContent(note.content || '');
     setEditAttachments(note.attachments || []);
     setIsEditing(false);
   };
@@ -108,82 +126,151 @@ export default function NoteCard({
     <div 
       className="relative bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 group"
       style={{ backgroundColor: note.color }}
-      onMouseEnter={() => setShowActions(true)}
+      onMouseEnter={() => !isMobile && setShowActions(true)}
       onMouseLeave={() => {
-        setShowActions(false);
-        setShowPositionMenu(false);
+        if (!isMobile) {
+          setShowActions(false);
+          setShowPositionMenu(false);
+        }
       }}
+      onTouchStart={() => isMobile && setShowActions(true)}
     >
       {/* Boutons de réorganisation (côté gauche) */}
-      {!isEditing && showActions && (
+      {!isEditing && (showActions || isMobile) && (
         <div className="absolute top-2 left-2 flex flex-col space-y-1">
-          {canMoveUp && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveUp(note.id);
-              }}
-              className="p-1 bg-gray-800 text-white rounded-full hover:bg-blue-600 transition-colors"
-              title="Déplacer vers le haut"
-              disabled={syncing}
-            >
-              <ChevronUp className="w-3 h-3" />
-            </button>
-          )}
-          {canMoveDown && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveDown(note.id);
-              }}
-              className="p-1 bg-gray-800 text-white rounded-full hover:bg-blue-600 transition-colors"
-              title="Déplacer vers le bas"
-              disabled={syncing}
-            >
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          )}
-          {/* Menu de position */}
-          {totalInSection > 2 && (
+          {/* Sur mobile, toujours montrer le menu principal */}
+          {(canMoveUp || canMoveDown || totalInSection > 2) && (
             <div className="relative">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowPositionMenu(!showPositionMenu);
                 }}
-                className="p-1 bg-gray-800 text-white rounded-full hover:bg-purple-600 transition-colors"
-                title="Choisir la position"
+                className={`p-1 text-white rounded-full transition-colors ${
+                  isMobile 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-gray-800 hover:bg-purple-600'
+                }`}
+                title="Options de position"
                 disabled={syncing}
               >
                 <MoreVertical className="w-3 h-3" />
               </button>
               
-              {/* Menu déroulant de positions */}
+              {/* Menu de position adaptatif */}
               {showPositionMenu && (
-                <div className="absolute left-8 top-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]">
+                <div className={`absolute bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[140px] ${
+                  isMobile 
+                    ? 'left-8 top-0' 
+                    : 'left-8 top-0'
+                }`}>
                   <div className="p-2 text-xs text-gray-500 border-b">
-                    Position actuelle: {currentPosition + 1}
+                    Position: {currentPosition + 1} / {totalInSection}
                   </div>
-                  {Array.from({ length: totalInSection }, (_, index) => (
+                  
+                  {/* Déplacements rapides */}
+                  {canMoveUp && (
                     <button
-                      key={index}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onMoveToPosition(note.id, index);
+                        onMoveUp(note.id);
                         setShowPositionMenu(false);
                       }}
-                      className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
-                        index === currentPosition 
-                          ? 'bg-blue-50 text-blue-600 font-medium' 
-                          : 'text-gray-700'
-                      }`}
-                      disabled={index === currentPosition}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      {index === 0 && 'Placer en premier'}
-                      {index === totalInSection - 1 && index !== 0 && 'Placer en dernier'}
-                      {index !== 0 && index !== totalInSection - 1 && `Position ${index + 1}`}
+                      <ChevronUp className="w-4 h-4 mr-2" />
+                      Monter d'une place
                     </button>
-                  ))}
+                  )}
+                  
+                  {canMoveDown && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveDown(note.id);
+                        setShowPositionMenu(false);
+                      }}
+                      className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <ChevronDown className="w-4 h-4 mr-2" />
+                      Descendre d'une place
+                    </button>
+                  )}
+                  
+                  {/* Séparateur si il y a des mouvements ET des positions */}
+                  {(canMoveUp || canMoveDown) && totalInSection > 2 && (
+                    <div className="border-t border-gray-200 my-1"></div>
+                  )}
+                  
+                  {/* Positions spécifiques */}
+                  {totalInSection > 2 && (
+                    <>
+                      {currentPosition !== 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMoveToPosition(note.id, 0);
+                            setShowPositionMenu(false);
+                          }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          📌 Placer en premier
+                        </button>
+                      )}
+                      
+                      {currentPosition !== totalInSection - 1 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMoveToPosition(note.id, totalInSection - 1);
+                            setShowPositionMenu(false);
+                          }}
+                          className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          📍 Placer en dernier
+                        </button>
+                      )}
+                      
+                      {/* Positions intermédiaires (seulement si plus de 4 notes) */}
+                      {totalInSection > 4 && (
+                        <div className="border-t border-gray-200 my-1">
+                          <div className="px-3 py-1 text-xs text-gray-500">Positions:</div>
+                          {Array.from({ length: totalInSection }, (_, index) => {
+                            if (index === 0 || index === totalInSection - 1 || index === currentPosition) {
+                              return null; // Skip first, last, and current
+                            }
+                            return (
+                              <button
+                                key={index}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMoveToPosition(note.id, index);
+                                  setShowPositionMenu(false);
+                                }}
+                                className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                Position {index + 1}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Bouton fermer pour mobile */}
+                  {isMobile && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowPositionMenu(false);
+                        setShowActions(false);
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-200"
+                    >
+                      ✕ Fermer
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -192,25 +279,35 @@ export default function NoteCard({
       )}
 
       {/* Icônes d'action en haut à droite */}
-      {!isEditing && showActions && (
+      {!isEditing && (showActions || isMobile) && (
         <div className="absolute top-2 right-2 flex space-x-1">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onTogglePin(note.id);
             }}
-            className="p-1 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-colors"
+            className={`p-1 text-white rounded-full transition-colors ${
+              isMobile 
+                ? 'bg-yellow-500 hover:bg-yellow-600' 
+                : 'bg-gray-800 hover:bg-gray-700'
+            }`}
             title={note.pinned ? "Désépingler" : "Épingler"}
             disabled={syncing}
           >
-            <Pin className={`w-3 h-3 ${note.pinned ? 'fill-current text-yellow-400' : ''}`} />
+            <Pin className={`w-3 h-3 ${note.pinned ? 'fill-current text-yellow-200' : ''}`} />
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
               setIsEditing(true);
+              setShowActions(false);
+              setShowPositionMenu(false);
             }}
-            className="p-1 bg-gray-800 text-white rounded-full hover:bg-blue-600 transition-colors"
+            className={`p-1 text-white rounded-full transition-colors ${
+              isMobile 
+                ? 'bg-blue-500 hover:bg-blue-600' 
+                : 'bg-gray-800 hover:bg-blue-600'
+            }`}
             title="Modifier"
           >
             <Edit3 className="w-3 h-3" />
@@ -220,7 +317,11 @@ export default function NoteCard({
               e.stopPropagation();
               onDelete(note.id);
             }}
-            className="p-1 bg-gray-800 text-white rounded-full hover:bg-red-600 transition-colors"
+            className={`p-1 text-white rounded-full transition-colors ${
+              isMobile 
+                ? 'bg-red-500 hover:bg-red-600' 
+                : 'bg-gray-800 hover:bg-red-600'
+            }`}
             title="Supprimer"
             disabled={syncing}
           >
@@ -229,8 +330,8 @@ export default function NoteCard({
         </div>
       )}
 
-      {/* Pin icon pour les notes épinglées (toujours visible) */}
-      {note.pinned && !showActions && (
+      {/* Pin icon pour les notes épinglées (toujours visible si pas d'actions) */}
+      {note.pinned && !showActions && !isMobile && (
         <Pin className="absolute top-2 right-2 w-4 h-4 text-yellow-500 fill-current" />
       )}
 

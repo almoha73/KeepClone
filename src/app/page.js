@@ -384,7 +384,7 @@ export default function KeepClone() {
               Épinglées
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {pinnedNotes.map((note, index) => (
+              {pinnedNotes.filter(note => note && note.id).map((note, index) => (
                 <NoteCard 
                   key={note.id} 
                   note={note} 
@@ -415,7 +415,7 @@ export default function KeepClone() {
               </h2>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {unpinnedNotes.map((note, index) => (
+              {unpinnedNotes.filter(note => note && note.id).map((note, index) => (
                 <NoteCard 
                   key={note.id} 
                   note={note} 
@@ -442,7 +442,7 @@ export default function KeepClone() {
           <div className="text-center py-16">
             <div className="text-gray-400 mb-4">
               <Edit3 className="w-16 h-16 mx-auto mb-4" />
-              <p className="text-xl">Vos notes s&apos;afficheront ici</p>
+              <p className="text-xl">Vos notes s'afficheront ici</p>
               <p className="text-sm mt-2">Créez votre première note !</p>
             </div>
           </div>
